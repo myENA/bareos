@@ -123,6 +123,7 @@ struct plugin_ctx {
    int32_t backup_level;              /* Backup level e.g. Full/Differential/Incremental */
    utime_t since;                     /* Since time for Differential/Incremental */
    char *plugin_options;              /* Options passed to plugin */
+   char *plugin_definition;           /* Previous plugin definition passed to plugin */
    char *conffile;                    /* Configfile to read to be able to connect to CEPHFS */
    char *basedir;                     /* Basedir to start backup in */
    char flags[FOPTS_BYTES];           /* Bareos internal flags */
@@ -329,6 +330,10 @@ static bRC freePlugin(bpContext *ctx)
 
    if (p_ctx->conffile) {
       free(p_ctx->conffile);
+   }
+
+   if (p_ctx->plugin_definition) {
+      free(p_ctx->plugin_definition);
    }
 
    if (p_ctx->plugin_options) {
@@ -852,6 +857,22 @@ static bRC parse_plugin_definition(bpContext *ctx, void *value)
       return bRC_Error;
    }
 
+   /*
+    * See if we already got some plugin definition before and its exactly the same.
+    */
+   if (p_ctx->plugin_definition) {
+      if (bstrcmp(p_ctx->plugin_definition, (char *)value)) {
+         return bRC_OK;
+      }
+
+      free(p_ctx->plugin_definition);
+   }
+
+   /*
+    * Keep track of the last processed plugin definition.
+    */
+   p_ctx->plugin_definition = bstrdup((char *)value);
+
    keep_existing = (p_ctx->plugin_options) ? true : false;
 
    /*
@@ -967,6 +988,14 @@ static bRC connect_to_cephfs(bpContext *ctx)
    int status;
    plugin_ctx *p_ctx = (plugin_ctx *)ctx->pContext;
 
+   /*
+    * If we get called and we already have a handle to cephfs we should tear it down.
+    */
+   if (p_ctx->cmount) {
+      ceph_shutdown(p_ctx->cmount);
+      p_ctx->cmount = NULL;
+   }
+
    status = ceph_create(&p_ctx->cmount, NULL);
    if (status < 0) {
       berrno be;
@@ -1009,6 +1038,16 @@ static bRC setup_backup(bpContext *ctx, void *value)
       return bRC_Error;
    }
 
+   /*
+    * If we are already having a handle to cepfs and we are getting the
+    * same plugin definition there is no need to tear down the whole stuff and
+    * setup exactly the same.
+    */
+   if (p_ctx->cmount &&
+       bstrcmp((char *)value, p_ctx->plugin_definition)) {
+      return bRC_OK;
+   }
+
    if (connect_to_cephfs(ctx) != bRC_OK) {
       return bRC_Error;
    }
@@ -1039,11 +1078,17 @@ static bRC setup_restore(bpContext *ctx, void *value)
       return bRC_Error;
    }
 
-   if (connect_to_cephfs(ctx) != bRC_OK) {
-      return bRC_Error;
+   /*
+    * If we are already having a handle to cepfs and we are getting the
+    * same plugin definition there is no need to tear down the whole stuff and
+    * setup exactly the same.
+    */
+   if (p_ctx->cmount &&
+       bstrcmp((char *)value, p_ctx->plugin_definition)) {
+      return bRC_OK;
    }
 
-   return bRC_OK;
+   return connect_to_cephfs(ctx);
 }
 
 /*
