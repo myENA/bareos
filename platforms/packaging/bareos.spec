@@ -5,8 +5,8 @@
 #
 
 Name: 		bareos
-Version: 	16.2.4
-Release: 	0
+Version: 	16.2.6
+Release: 	0%{?dist}
 Group: 		Productivity/Archiving/Backup
 License: 	AGPL-3.0
 BuildRoot: 	%{_tmppath}/%{name}-root
@@ -14,7 +14,7 @@ URL: 		http://www.bareos.org/
 Vendor: 	The Bareos Team
 #Packager: 	{_packager}
 
-%define _libversion    16.2.4
+%define _libversion    16.2.6
 
 %define library_dir    %{_libdir}/bareos
 %define backend_dir    %{_libdir}/bareos/backends
@@ -98,22 +98,23 @@ Vendor: 	The Bareos Team
 %endif
 
 # centos/rhel 5: segfault when building qt monitor
-%if 0%{?centos_version} == 505 || 0%{?rhel_version} == 505
+%if 0%{?centos_ver} == 505 || 0%{?rhel_version} == 505
 %define build_bat 0
 %define build_qt_monitor 0
 %define have_git 0
 %define python_plugins 0
 %endif
 
-%if 0%{?rhel_version} >= 700 || 0%{?centos_version} >= 700 || 0%{?fedora_version} >= 19
+%if 0%{?rhel_version} >= 700 || 0%{?centos_ver} >= 7 || 0%{?fedora_version} >= 19
 %define systemd_support 1
+%define ceph 1
+%define droplet 1
+%define cpath /usr/include/droplet-3.0
+
+BuildRequires: libdroplet-devel
 %if 0%{?fedora_version} != 19
 %define glusterfs 1
 %endif
-%endif
-
-%if 0%{?rhel_version} >= 700
-%define ceph 1
 %endif
 
 %if 0%{?systemd_support}
@@ -130,7 +131,7 @@ BuildRequires: glusterfs-devel glusterfs-api-devel
 %endif
 
 %if 0%{?ceph}
-BuildRequires: ceph-devel
+BuildRequires: libradosstriper-devel librados-devel libcephfs-devel
 %endif
 
 %if 0%{?have_git}
@@ -138,6 +139,8 @@ BuildRequires: git-core
 %endif
 
 Source0: %{name}-%{version}.tar.gz
+Patch0: bareos_16.2.6_cephfs_update.patch
+Patch1: 0001-mvw-S3-and-Gluster-patches.patch
 
 #BuildRequires: elfutils
 BuildRequires: gcc
@@ -154,7 +157,7 @@ BuildRequires: openssl-devel
 BuildRequires: libacl-devel
 BuildRequires: pkgconfig
 BuildRequires: lzo-devel
-BuildRequires: libfastlz-devel
+BuildRequires: fastlz-devel
 BuildRequires: logrotate
 %if 0%{?build_sqlite3}
 %if 0%{?suse_version}
@@ -170,7 +173,7 @@ BuildRequires: libcap-devel
 BuildRequires: mtx
 
 %if 0%{?build_bat} || 0%{?build_qt_monitor}
-BuildRequires: libqt4-devel
+BuildRequires: qt4-devel
 %endif
 
 %if 0%{?check_cmocka}
@@ -206,10 +209,10 @@ BuildRequires: lsb-release
 
 BuildRequires: libtermcap-devel
 BuildRequires: passwd
-BuildRequires: tcp_wrappers
+BuildRequires: tcp_wrappers-devel
 
 # Some magic to be able to determine what platform we are running on.
-%if 0%{?rhel_version} || 0%{?centos_version} || 0%{?fedora_version}
+%if 0%{?rhel_version} || 0%{?centos_ver} || 0%{?fedora_version}
 
 BuildRequires: redhat-lsb
 
@@ -218,7 +221,7 @@ BuildRequires: redhat-lsb
 BuildRequires: redhat-release
 %endif
 
-%if 0%{?centos_version} && 0%{?centos_version} <= 600
+%if 0%{?centos_ver} && 0%{?centos_ver} <= 6
 BuildRequires: redhat-release
 %endif
 
@@ -226,7 +229,7 @@ BuildRequires: redhat-release
 BuildRequires: fedora-release
 %endif
 
-%if 0%{?rhel_version} >= 600 || 0%{?centos_version} >= 600 || 0%{?fedora_version} >= 14
+%if 0%{?rhel_version} >= 600 || 0%{?centos_ver} >= 6 || 0%{?fedora_version} >= 14
 BuildRequires: jansson-devel
 BuildRequires: tcp_wrappers-devel
 %endif
@@ -441,24 +444,24 @@ Requires:   sqlite3-devel
 Requires:   sqlite-devel
 %endif
 %endif
-%if 0%{?rhel_version} || 0%{?centos_version} || 0%{?fedora_version}
+%if 0%{?rhel_version} || 0%{?centos_ver} || 0%{?fedora_version}
 Requires:   openssl-devel
 %else
 Requires:   libopenssl-devel
 %endif
-%if 0%{?rhel_version} >= 600 || 0%{?centos_version} >= 600 || 0%{?fedora_version}
+%if 0%{?rhel_version} >= 600 || 0%{?centos_ver} >= 6 || 0%{?fedora_version}
 Requires:   tcp_wrappers-devel
 %else
-%if 0%{?rhel_version} || 0%{?centos_version}
+%if 0%{?rhel_version} || 0%{?centos_ver}
 Requires:   tcp_wrappers
 %else
 Requires:   tcpd-devel
 %endif
 %endif
-%if 0%{?rhel_version} >= 700 || 0%{?centos_version} >= 700 || 0%{?fedora_version} >= 19
+%if 0%{?rhel_version} >= 700 || 0%{?centos_ver} >= 7 || 0%{?fedora_version} >= 19
 Requires:   mariadb-devel
 %else
-%if 0%{?rhel_version} || 0%{?centos_version} || 0%{?fedora_version}
+%if 0%{?rhel_version} || 0%{?centos_ver} || 0%{?fedora_version}
 Requires:   mysql-devel
 %else
 Requires:   libmysqlclient-devel
@@ -652,7 +655,8 @@ BAT is a graphical interface for Bareos.
 This package contains bareos development files.
 
 %prep
-%setup
+%setup -n %name-Release-%version
+%patch0 -p1
 
 %build
 # Cleanup defined in Fedora Packaging:Guidelines
@@ -664,6 +668,11 @@ fi
 export PATH=$PATH:/usr/lib64/qt4/bin:/usr/lib/qt4/bin
 %endif
 export MTX=/usr/sbin/mtx
+
+%if 0%{?droplet}
+export CPATH=$CPATH:/usr/include/droplet-3.0
+%endif
+
 # Notice keep the upstream order of ./configure --help
 %configure \
   --prefix=%{_prefix} \
@@ -731,6 +740,14 @@ export MTX=/usr/sbin/mtx
   --with-hostname="XXX_REPLACE_WITH_LOCAL_HOSTNAME_XXX" \
 %if 0%{?systemd_support}
   --with-systemd \
+%endif
+%if 0%{?droplet}
+  --with-droplet \
+%endif
+%if 0%{?ceph}
+  --with-cephfs \
+  --with-rados \
+  --with-rados-striper \
 %endif
   --enable-includes
 

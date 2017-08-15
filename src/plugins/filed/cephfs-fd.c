@@ -66,6 +66,7 @@ static bRC parse_plugin_definition(bpContext *ctx, void *value);
 static bRC setup_backup(bpContext *ctx, void *value);
 static bRC setup_restore(bpContext *ctx, void *value);
 static bRC end_restore_job(bpContext *ctx, void *value);
+static void convertCephStatsToStats(struct ceph_statx *csx, struct stat *st);
 
 /*
  * Pointers to Bareos functions
@@ -267,6 +268,29 @@ static bRC newPlugin(bpContext *ctx)
    return bRC_OK;
 }
 
+/**
+ * Convert a ceph_statx to a stat.  Modifies st
+ */
+static void convertCephStatsToStats(struct ceph_statx *csx, struct stat *st) {
+   st->st_atim = csx->stx_atime;
+   st->st_atime = csx->stx_atime.tv_sec;
+   st->st_blksize = csx->stx_blksize;
+   st->st_blocks = csx->stx_blocks;
+   st->st_ctim = csx->stx_ctime;
+   st->st_ctime = csx->stx_ctime.tv_sec;
+   st->st_dev = csx->stx_dev;
+   st->st_gid = csx->stx_gid;
+   st->st_ino = csx->stx_ino;
+   st->st_mode = csx->stx_mode;
+   st->st_mtim = csx->stx_mtime;
+   st->st_mtime = csx->stx_mtime.tv_sec;
+   st->st_nlink = csx->stx_nlink;
+   st->st_rdev = csx->stx_rdev;
+   st->st_size = csx->stx_size;
+   st->st_uid = csx->stx_uid;
+}
+
+
 /*
  * Free a plugin instance, i.e. release our private storage
  */
@@ -462,17 +486,20 @@ static bRC get_next_file_to_backup(bpContext *ctx)
     * Loop until we know what file is next or when we are done.
     */
    while (1) {
-      int stmask = 0;
-
+      struct ceph_statx cstatp;
       memset(&p_ctx->statp, 0, sizeof(p_ctx->statp));
       memset(&p_ctx->de, 0, sizeof(p_ctx->de));
-      status = ceph_readdirplus_r(p_ctx->cmount, p_ctx->cdir, &p_ctx->de, &p_ctx->statp, &stmask);
+      memset(&cstatp, 0, sizeof(cstatp));
 
+
+      status = ceph_readdirplus_r(p_ctx->cmount, p_ctx->cdir, &p_ctx->de, &cstatp, CEPH_STATX_BASIC_STATS, 0, NULL);
+      convertCephStatsToStats(&cstatp, &p_ctx->statp);
       /*
        * No more entries in this directory ?
        */
       if (status == 0) {
-         status = ceph_stat(p_ctx->cmount, p_ctx->cwd, &p_ctx->statp);
+         status = ceph_statx(p_ctx->cmount, p_ctx->cwd, &cstatp, CEPH_STATX_BASIC_STATS, 0);
+         convertCephStatsToStats(&cstatp, &p_ctx->statp);
          if (status < 0) {
             berrno be;
 
@@ -1036,7 +1063,7 @@ static bRC pluginIO(bpContext *ctx, struct io_pkt *io)
 
    switch(io->func) {
    case IO_OPEN:
-      p_ctx->cfd = ceph_open(p_ctx->cmount, io->fname, io->flags, io->mode);
+      p_ctx->cfd = ceph_open(p_ctx->cmount, io->fname, int(io->flags), io->mode);
       if (p_ctx->cfd < 0) {
          io->status = -1;
          io->io_errno = -p_ctx->cfd;
@@ -1154,7 +1181,7 @@ static bRC endRestoreFile(bpContext *ctx)
 static inline bool cephfs_makedirs(plugin_ctx *p_ctx, const char *directory)
 {
    char *bp;
-   struct stat st;
+   struct ceph_statx st;
    bool retval = false;
    POOL_MEM new_directory(PM_FNAME);
 
@@ -1182,7 +1209,7 @@ static inline bool cephfs_makedirs(plugin_ctx *p_ctx, const char *directory)
       } else {
          *bp = '\0';
 
-         if (ceph_lstat(p_ctx->cmount, new_directory.c_str(), &st) != 0) {
+         if (ceph_statx(p_ctx->cmount, new_directory.c_str(), &st, CEPH_STATX_BASIC_STATS, AT_SYMLINK_NOFOLLOW) != 0) {
             switch (errno) {
             case ENOENT:
                /*
@@ -1228,7 +1255,7 @@ static bRC createFile(bpContext *ctx, struct restore_pkt *rp)
 {
    int status;
    bool exists = false;
-   struct stat st;
+   struct ceph_statx st;
    plugin_ctx *p_ctx = (plugin_ctx *)ctx->pContext;
 
    if (!p_ctx) {
@@ -1239,20 +1266,20 @@ static bRC createFile(bpContext *ctx, struct restore_pkt *rp)
     * See if the file already exists.
     */
    Dmsg(ctx, 400, "cephfs-fd: Replace=%c %d\n", (char)rp->replace, rp->replace);
-   status = ceph_lstat(p_ctx->cmount, rp->ofname, &st);
+   status = ceph_statx(p_ctx->cmount, rp->ofname, &st, CEPH_STATX_BASIC_STATS, AT_SYMLINK_NOFOLLOW);
    if (status == 0) {
       exists = true;
 
       switch (rp->replace) {
       case REPLACE_IFNEWER:
-         if (rp->statp.st_mtime <= st.st_mtime) {
+         if (rp->statp.st_mtime <= st.stx_mtime.tv_sec) {
             Jmsg(ctx, M_INFO, 0, _("cephfs-fd: File skipped. Not newer: %s\n"), rp->ofname);
             rp->create_status = CF_SKIP;
             goto bail_out;
          }
          break;
       case REPLACE_IFOLDER:
-         if (rp->statp.st_mtime >= st.st_mtime) {
+         if (rp->statp.st_mtime >= st.stx_mtime.tv_sec) {
             Jmsg(ctx, M_INFO, 0, _("cephfs-fd: File skipped. Not older: %s\n"), rp->ofname);
             rp->create_status = CF_SKIP;
             goto bail_out;
