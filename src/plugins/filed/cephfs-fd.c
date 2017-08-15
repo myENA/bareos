@@ -273,22 +273,22 @@ static bRC newPlugin(bpContext *ctx)
  * Convert a ceph_statx to a stat.  Modifies st
  */
 static void convertCephStatsToStats(struct ceph_statx *csx, struct stat *st) {
-	st->st_atim = csx->stx_atime;
-	st->st_atime = csx->stx_atime.tv_sec;
-	st->st_blksize = csx->stx_blksize;
-	st->st_blocks = csx->stx_blocks;
-	st->st_ctim = csx->stx_ctime;
-	st->st_ctime = csx->stx_ctime.tv_sec;
-	st->st_dev = csx->stx_dev;
-	st->st_gid = csx->stx_gid;
-	st->st_ino = csx->stx_ino;
-	st->st_mode = csx->stx_mode;
-	st->st_mtim = csx->stx_mtime;
-	st->st_mtime = csx->stx_mtime.tv_sec;
-	st->st_nlink = csx->stx_nlink;
-	st->st_rdev = csx->stx_rdev;
-	st->st_size = csx->stx_size;
-	st->st_uid = csx->stx_uid;
+    st->st_atim = csx->stx_atime;
+    st->st_atime = csx->stx_atime.tv_sec;
+    st->st_blksize = csx->stx_blksize;
+    st->st_blocks = csx->stx_blocks;
+    st->st_ctim = csx->stx_ctime;
+    st->st_ctime = csx->stx_ctime.tv_sec;
+    st->st_dev = csx->stx_dev;
+    st->st_gid = csx->stx_gid;
+    st->st_ino = csx->stx_ino;
+    st->st_mode = csx->stx_mode;
+    st->st_mtim = csx->stx_mtime;
+    st->st_mtime = csx->stx_mtime.tv_sec;
+    st->st_nlink = csx->stx_nlink;
+    st->st_rdev = csx->stx_rdev;
+    st->st_size = csx->stx_size;
+    st->st_uid = csx->stx_uid;
 }
 
 /*
