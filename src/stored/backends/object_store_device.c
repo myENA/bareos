@@ -359,7 +359,7 @@ bool object_store_device::flush_remote_chunk(chunk_io_request *request)
     *                      need to free after copying the data.
     */
    memset(&dpl_options, 0, sizeof(dpl_options));
-   dpl_options.mask |= DPL_OPTION_NOALLOC;
+   dpl_options.mask = dpl_option_mask_t(int(DPL_OPTION_NOALLOC) | int(dpl_options.mask));
 
    dpl_sysmd_free(sysmd);
    sysmd = dpl_sysmd_dup(&m_sysmd);
@@ -443,7 +443,7 @@ bool object_store_device::read_remote_chunk(chunk_io_request *request)
     *                      need to free after copying the data.
     */
    memset(&dpl_options, 0, sizeof(dpl_options));
-   dpl_options.mask |= DPL_OPTION_NOALLOC;
+   dpl_options.mask = dpl_option_mask_t(int(DPL_OPTION_NOALLOC) | int(dpl_options.mask));
 
    dpl_range.start = 0;
    dpl_range.end = sysmd->size;
@@ -639,7 +639,7 @@ bool object_store_device::initialize()
       memset(&m_sysmd, 0, sizeof(m_sysmd));
       if (m_location) {
          pm_strcpy(temp, m_location);
-         m_sysmd.mask |= DPL_SYSMD_MASK_LOCATION_CONSTRAINT;
+         m_sysmd.mask = dpl_sysmd_mask_t(int(DPL_SYSMD_MASK_LOCATION_CONSTRAINT) | int(m_sysmd.mask));
          m_sysmd.location_constraint = dpl_location_constraint(temp.c_str());
          if (m_sysmd.location_constraint == -1) {
             Mmsg2(errmsg, _("Illegal location argument %s for device %s%s\n"), temp.c_str(), dev_name);
@@ -649,7 +649,7 @@ bool object_store_device::initialize()
 
       if (m_canned_acl) {
          pm_strcpy(temp, m_canned_acl);
-         m_sysmd.mask |= DPL_SYSMD_MASK_CANNED_ACL;
+         m_sysmd.mask = dpl_sysmd_mask_t(int(DPL_SYSMD_MASK_CANNED_ACL) | int(m_sysmd.mask));
          m_sysmd.canned_acl = dpl_canned_acl(temp.c_str());
          if (m_sysmd.canned_acl == -1) {
             Mmsg2(errmsg, _("Illegal canned_acl argument %s for device %s%s\n"), temp.c_str(), dev_name);
@@ -659,7 +659,7 @@ bool object_store_device::initialize()
 
       if (m_storage_class) {
          pm_strcpy(temp, m_storage_class);
-         m_sysmd.mask |= DPL_SYSMD_MASK_STORAGE_CLASS;
+         m_sysmd.mask = dpl_sysmd_mask_t(int(DPL_SYSMD_MASK_STORAGE_CLASS) | int(m_sysmd.mask));
          m_sysmd.storage_class = dpl_storage_class(temp.c_str());
          if (m_sysmd.storage_class == -1) {
             Mmsg2(errmsg, _("Illegal storage_class argument %s for device %s%s\n"), temp.c_str(), dev_name);
