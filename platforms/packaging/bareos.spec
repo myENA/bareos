@@ -139,7 +139,7 @@ BuildRequires: git-core
 %endif
 
 Source0: %{name}-%{version}.tar.gz
-Patch0: bareos_16.2.6_cephfs_update.patch
+Patch0: 0001-Updating-calls-to-libcephfs-so-that-they-work-with-n.patch
 Patch1: 0001-mvw-S3-and-Gluster-patches.patch
 
 #BuildRequires: elfutils
@@ -324,6 +324,15 @@ Summary:    CEPH support for the Bareos Storage daemon
 Group:      Productivity/Archiving/Backup
 Requires:   %{name}-common  = %{version}
 Requires:   %{name}-storage = %{version}
+%endif
+
+%if 0%{?droplet}
+%package    storage-object
+Summary:    CEPH support for the Droplet Storage Backends (S3 / Swift)
+Group:      Productivity/Archiving/Backup
+Requires:   %{name}-common  = %{version}
+Requires:   %{name}-storage = %{version}
+Requires:   libdroplet
 %endif
 
 %package    storage-tape
@@ -583,6 +592,13 @@ This package contains the Storage backend for GlusterFS.
 
 This package contains the Storage backend for CEPH.
 %endif
+
+if 0%{?droplet}
+%description storage-object
+%{dscr}
+
+This package contains bindings to the scality libdroplet
+cloud storage library (S3, Swift)
 
 %description storage-fifo
 %{dscr}
@@ -1045,6 +1061,12 @@ echo "This is a meta package to install a full bareos system" > %{buildroot}%{_d
 %{backend_dir}/libbareossd-cephfs*.so
 %{_sysconfdir}/bareos/bareos-dir.d/storage/Rados.conf.example
 %{_sysconfdir}/bareos/bareos-sd.d/device/RadosStorage.conf.example
+%endif
+
+%if 0%{?droplet}
+%files storage-object
+%defattr(-, root, root)
+%{backend_dir}/libbareossd-object*.so
 %endif
 
 %endif # not client_only
