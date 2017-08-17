@@ -29,7 +29,9 @@
 #define OBJECTSTORAGE_DEVICE_H
 
 #include <droplet.h>
+extern "C" {
 #include <droplet/vfs.h>
+}
 
 class object_store_device: public chunked_device {
 private:
