@@ -740,17 +740,35 @@ bail_out:
  */
 int object_store_device::d_open(const char *pathname, int flags, int mode)
 {
-   int retval = -1;
+   dpl_status_t status;
 
    if (!initialize()) {
-      goto bail_out;
+	   return -1;
    }
 
    setup_chunk(flags);
-   retval = 0;
 
-bail_out:
-   return retval;
+   // Ensure that we can actually connect to the cluster.  We don't
+   // care about the list of buckets, so passing NULL here.
+   status = dpl_list_all_my_buckets(m_ctx, NULL);
+   switch (status) {
+   case DPL_SUCCESS:
+      m_offset = 0;
+      Dmsg0(100, "I'm returning 0 from open, success!\n");
+      return 0;
+   case DPL_ENOTSUPP:
+	   Dmsg0(100, "Backend doesn't support list buckets, we'll hope for the best\n");
+	   m_offset = 0;
+	   return 0;
+   default:
+      Mmsg2(errmsg, _("Failed to open %s using dpl_open(): ERR=%s.\n"),
+            getVolCatName(), dpl_status_str(status));
+      // This sets errno
+      droplet_errno_to_system_errno(status);
+      Dmsg1(100, "I'm returning -1 from open, errno was: %d\n", errno);
+   }
+
+   return -1;
 }
 
 /*
