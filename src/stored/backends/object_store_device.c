@@ -346,6 +346,8 @@ bool object_store_device::flush_remote_chunk(chunk_io_request *request)
          }
          break;
       default:
+         dev_errno = droplet_errno_to_system_errno(status);
+         goto bail_out;
          break;
       }
       break;
